@@ -1,0 +1,166 @@
+/*
+  Dieses Sketch wurde von darius.kschl geschrieben!
+
+  Das Spiel eignet sich hervorragend, um sein Erinnerungsvermögen zu trainieren.
+  Es besteht aus vier Buttons (rot, blau, gelb und grün), die in einer vorgegebenen Reihenfolge aufleuchten und je nach Farbe einen Sound von sich geben.
+  Starte das Spiel indem du einen der vier Buttons drückst.
+  Du musst dir als Spieler die Reihenfolge der Farben merken und wiederholen.
+  Mit jeder erfolgreichen Runde kommt eine weitere Farbe zur Kombination hinzu.
+*/
+
+// LED Pin Definitionen
+#define ledRed     7
+#define ledBlue    4
+#define ledGreen   9
+#define ledYellow  5
+
+// Button Pin Definitionen
+#define buttonRed     11
+#define buttonGreen   13
+#define buttonBlue    3
+#define buttonYellow  2
+
+// Buzzer Pin Definition
+#define buzzer        6
+
+#define choiceRed     0         // Roter Button wurde gedrückt
+#define choiceGreen   2         // Grüner Button wurde gedrückt
+#define choiceBlue    1         // Blauer Button wurde gedrückt
+#define choiceYellow  3         // Gelber Button wurde gedrückt
+#define choiceNone    4         // Kein Button wurde gedrückt
+
+// Spiel Parameter Definitionen
+#define levelsInGame  100       // Zahl des höchstmöglichen Levels.
+#define timeLimit 3000          // The time allowed between button presses
+
+int ledPins[] = {ledRed, ledBlue, ledGreen, ledYellow};                               // Array indem alle LEDs abgespeichert sind
+int buttonPins[] = {buttonRed, buttonBlue, buttonGreen, buttonYellow};                // Array indem alle Buttons abgespiechert sind
+int buttonStates[] = {choiceRed, choiceBlue, choiceGreen, choiceYellow, choiceNone};  // Array indem alle möglichen Button Eingaben abgespeichert sind
+int simonSaid[levelsInGame];                                                          // Array indem die gesamte Seqenz abgespiechert sind
+int level = 0;
+int highscore = 0;
+
+void setup() {
+  // Alle LED Pins als OUTPUT definiert
+  for (int i = 0; i < 4; i++) {
+    pinMode(ledPins[i], OUTPUT);
+  }
+
+  // Alle Button Pins als INPUT_PULLUP definiert
+  for (int i = 0; i < 4; i++) {
+    pinMode(buttonPins[i], INPUT_PULLUP);
+  }
+
+  // Buzzer Pin als OUTPUT definiert
+  pinMode(buzzer, OUTPUT);
+}
+
+void loop() {
+  level = 1;
+  blinkMode(); // Blink Modus solange man keinen Button gesrückt hat
+
+  // Wenn Button gedrückt wurde werden alle LEDs eingeschaltet
+  for (int i = 0; i < 4; i++) {
+    digitalWrite(ledPins[i], HIGH);
+  }
+  delay(1000);
+  // Nach Pause werden alle LEDs ausgeschaltet und das Spiel beginnnt
+  for (int i = 0; i < 4; i++) {
+    digitalWrite(ledPins[i], LOW);
+  }
+  delay(250);
+
+// Im simonSaid[] Array wird die gesamte Sequenz abgespeichert
+  for (int i = 0; i < levelsInGame; i++) {
+    simonSaid[i] = random(0, 4); // Es wird ein neuer Button zufällig ermittelt
+  }
+
+// Wenn man das Spiel verloren hat, ertönt eine Verlierer Musik und ein Verlierer Text
+  if (playGame() == false) {  // Es wird überprüft ob von der Routine ein falsch zurückgegeben wird
+    playLooserMusic();
+  }
+}
+
+boolean playGame() {
+  while (level < levelsInGame) {
+    playSequence();                               // Spielt die gesamte Sequenz bis zum aktuellen Level ab
+    for (int i = 0 ; i < level ; i++)
+    {
+      int button = waitForButton();               // Unter der Variable Button wird der aktuell gedrückte Button gespeichert
+      if (button != simonSaid[i]) return false;   // Wenn der falsche Button gedrückt wurde, gibt er ein falsch zurück
+    }
+    level++;
+    delay(1000);                                  // Wartezeit bevor das nächste Level anfängt
+  }
+}
+
+void playLooserMusic() {
+  tone(buzzer, 300);                // Spuelt den Verlierer Ton
+  for (int i = 0; i < 4; i++) {
+    digitalWrite(ledPins[i], HIGH); // Schaltet alle LEDs an
+  }
+  delay(1500);                      // Für 1,5 Sekunden bleiben der Ton und die LED an
+  noTone(buzzer);                   // Schaltet 
+}
+
+// Routine die schaut ob ein Button gedrückt wurde
+int waitForButton() {
+  long startTime = millis();  // Zeit mit der gestartet wird
+
+  while ((millis() - startTime) < timeLimit) {  // Es wird nur solange auf eine Button Eingabe gewartet bis das Zeit Limit abläuft
+    int button = buttonPressed();               // Unter Button wird abgespiechert welcher Button gedrückt wurde
+
+    if (button != choiceNone) {                 // Wenn ein Button gedrückt wurde, wird die LED angeschaltet und es ertönt der zur LED gehörende Sound
+      digitalWrite(ledPins[button], HIGH);
+      playBuzzer(button);
+      digitalWrite(ledPins[button], LOW);       // Schalter die entsprechende LED wieder aus
+
+      while ((buttonPressed() != choiceNone) & (millis() - startTime) < timeLimit);  // Solange der Button noch gedrückt ist und die erlaubte Zeit noch nicht abgelaufen ist macht er garnichts
+      delay(100);                                                                    // Kleine Reservezeit falls man genau nach drei Sekunden auf den Button drückt
+      return button;                                                                 // Wenn der Button losgelassen wurde bzw. die Zeit abgelaufen ist, gibt er den gedrückten Button zurück
+    }
+  }
+  return choiceNone;  // Es wird übermittelt falls kein Button gedrückt wurde
+}
+
+// Töne der verschiedenen LEDs
+void playBuzzer(int led) {
+  switch (led) {
+    case 0: tone(buzzer, 950); break; // Ton für die Rote LED
+    case 1: tone(buzzer, 750); break; // Ton für die blaue LED 
+    case 2: tone(buzzer, 850); break; // Ton für die grüne LED
+    case 3: tone(buzzer, 650); break; // T´TOn für die gelbe LED
+  }
+  delay(150); // Zeit die der Ton an ist
+  noTone(buzzer);
+}
+
+// Gibt die Sequenz bis zum aktuellen Level aus
+void playSequence() {
+  for (int i = 0; i < level; i++) {
+    digitalWrite(ledPins[simonSaid[i]], HIGH);  // LED wird eingeschaltet
+    playBuzzer(simonSaid[i]);                   // Ton wird abgespielt
+    digitalWrite(ledPins[simonSaid[i]], LOW);   // LED wird ausgeschaltet
+    delay (150);                                // Es werden 150 Millisekunden gewartet bevor die nächste Farbe abgespielt wird
+  }
+}
+
+// Schaut welcher Button gedrüct wurde
+byte buttonPressed() {
+  for (int i = 0; i < 4; i++) {
+    if (digitalRead(buttonPins[i]) == LOW) return (buttonStates[i]); 
+  }
+  return choiceNone;
+}
+
+// Spielt einen Blink Modus ab bis der Spieler einen Button drückt
+void blinkMode() {
+  while (true) {
+    for (int i = 0; i < 4; i++) {
+      digitalWrite(ledPins[i], HIGH);
+      delay (100);
+      digitalWrite(ledPins[i], LOW);
+      if (buttonPressed() != choiceNone) return;
+    }
+  }
+}
